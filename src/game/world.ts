@@ -1,7 +1,7 @@
 import type { P } from "./types";
 
 export interface Box { minX: number; maxX: number; minZ: number; maxZ: number }
-export interface Building extends Box { h: number; color: string }
+export interface Building extends Box { h: number; color: string; heritage?: boolean }
 
 export const LINES = [-200, -100, 0, 100, 200];
 export const HALF_ROAD = 8;
@@ -17,6 +17,7 @@ export function rng(seed: number) {
 }
 
 const PALETTE = ["#f2e3c6", "#e8b07a", "#d9734e", "#5fb3a8", "#f4d35e", "#e6e1d3", "#8fb8de", "#c97b84", "#f0a868", "#9cc69b"];
+const HERITAGE = ["#f3d9a4", "#e9b8a0", "#cfe3c6", "#f2c4a0", "#efe6d2"];
 const STALL = ["#e63946", "#f4a261", "#2a9d8f", "#e9c46a", "#457b9d", "#8ac926", "#ff6b9a"];
 const SIGNS: [string, string, string][] = [
   ["WELCOME TO LAGOS ISLAND", "#0b6e4f", "#ffffff"],
@@ -68,7 +69,10 @@ export function buildWorld() {
             const mx = a + 12 + cell * (cx + 0.5) + (r() - 0.5) * (cell - w) * 0.8;
             const mz = c + 12 + cell * (cz + 0.5) + (r() - 0.5) * (cell - dp) * 0.8;
             const bd = { minX: mx - w / 2, maxX: mx + w / 2, minZ: mz - dp / 2, maxZ: mz + dp / 2 };
-            buildings.push({ ...bd, h, color: PALETTE[Math.floor(r() * PALETTE.length)] });
+            // Brazilian Quarter (Campos / Popo Aguda): low Afro-Brazilian heritage houses in the west blocks
+            const heritage = i === 0 && j < 3 && r() < 0.7;
+            if (heritage) buildings.push({ ...bd, h: 7 + r() * 2, color: HERITAGE[Math.floor(r() * HERITAGE.length)], heritage: true });
+            else buildings.push({ ...bd, h, color: PALETTE[Math.floor(r() * PALETTE.length)] });
             colliders.push(bd);
           }
       }
@@ -160,7 +164,10 @@ export function buildWorld() {
   // Third Mainland-style bridge loop
   routes.push([{ x: 4, z: 196 }, { x: 4, z: 472 }, { x: -4, z: 472 }, { x: -4, z: 196 }]);
 
-  return { buildings, colliders, palms, stalls, billboards, sidewalks, blocks, routes, pillars, busStops, poles };
+  // yellow steel-truss pedestrian footbridges over the Marina expressway (z=-100)
+  const footbridges: P[] = [-150, -50, 50, 150].map((x) => ({ x: x + 12, z: -100 }));
+
+  return { footbridges, buildings, colliders, palms, stalls, billboards, sidewalks, blocks, routes, pillars, busStops, poles };
 }
 
 export type World = ReturnType<typeof buildWorld>;
