@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Car, GameState, Ped } from "./types";
-import { LINES, type World } from "./world";
+import { LINES, MARINA_CURVE, type World } from "./world";
 import { asphalt, facade, ground, pavement, worldUVFacade } from "./textures";
 
 const mats = new Map<string, THREE.MeshLambertMaterial>();
@@ -136,6 +136,7 @@ export function WorldMesh({ W }: { W: World }) {
       <mesh position={[0, -1.5, 467]} receiveShadow material={T.sand}>
         <boxGeometry args={[120, 3, 100]} />
       </mesh>
+      <MarinaCurve road={T.roadH} />
       {/* blocks */}
       {W.blocks.map((b, i) => (
         <group key={i}>
@@ -319,5 +320,63 @@ export function Markers({ S }: { S: GameState }) {
       <Marker color="#ffd60a" set={(o) => (S.markers.taxi = o)} />
       <Marker color="#ff4fa3" set={(o) => (S.markers.drop = o)} />
     </>
+  );
+}
+
+/** Ribbon geometry along a polyline with half-width w, at height y. */
+function ribbon(pts: { x: number; z: number }[], w: number, y: number, off = 0) {
+  const pos: number[] = [], uv: number[] = [], idx: number[] = [];
+  let acc = 0;
+  pts.forEach((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+    const nx = -dz / L, nz = dx / L;
+    if (i > 0) acc += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+    pos.push(p.x + nx * (off - w), y, p.z + nz * (off - w), p.x + nx * (off + w), y, p.z + nz * (off + w));
+    uv.push(acc / 8, 0, acc / 8, 1);
+    if (i > 0) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Curving Marina expressway on reclaimed land along the lagoon, with a concrete median and black/yellow kerbs. */
+function MarinaCurve({ road }: { road: THREE.Material }) {
+  const G = useMemo(() => {
+    const ext = [{ x: -212, z: -200 }, ...MARINA_CURVE, { x: 212, z: -200 }];
+    const tex = (road as THREE.MeshLambertMaterial).map!.clone();
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(1, 1); tex.needsUpdate = true;
+    return {
+      land: ribbon(ext, 20, -0.02, -6),
+      road: ribbon(ext, 8, 0.03),
+      tex,
+      median: ribbon(ext, 0.5, 0.25),
+      kerbIn: ribbon(ext, 0.3, 0.14, 8.3),
+      kerbOut: ribbon(ext, 0.3, 0.14, -8.3),
+      lineL: ribbon(ext, 0.12, 0.05, 7.3),
+      lineR: ribbon(ext, 0.12, 0.05, -7.3),
+    };
+  }, [road]);
+  const kerbTex = useMemo(() => {
+    const cv = document.createElement("canvas"); cv.width = 64; cv.height = 8;
+    const g = cv.getContext("2d")!;
+    g.fillStyle = "#181818"; g.fillRect(0, 0, 64, 8); g.fillStyle = "#fec007"; g.fillRect(0, 0, 32, 8);
+    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.repeat.set(8, 1); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, []);
+  return (
+    <group>
+      <mesh geometry={G.land} receiveShadow><meshLambertMaterial color="#c9b089" side={THREE.DoubleSide} /></mesh>
+      <mesh geometry={G.road} receiveShadow><meshLambertMaterial map={G.tex} side={THREE.DoubleSide} /></mesh>
+      <mesh geometry={G.median}><meshLambertMaterial color="#d9d2c3" side={THREE.DoubleSide} /></mesh>
+      <mesh geometry={G.kerbIn}><meshLambertMaterial map={kerbTex} side={THREE.DoubleSide} /></mesh>
+      <mesh geometry={G.kerbOut}><meshLambertMaterial map={kerbTex} side={THREE.DoubleSide} /></mesh>
+      <mesh geometry={G.lineL}><meshBasicMaterial color="#eeeeee" side={THREE.DoubleSide} /></mesh>
+      <mesh geometry={G.lineR}><meshBasicMaterial color="#eeeeee" side={THREE.DoubleSide} /></mesh>
+    </group>
   );
 }
