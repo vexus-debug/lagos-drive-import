@@ -6,6 +6,22 @@ export interface Building extends Box { h: number; color: string; heritage?: boo
 export const LINES = [-200, -100, 0, 100, 200];
 export const HALF_ROAD = 8;
 
+/** Curving Marina expressway hugging the lagoon south of the grid; joins the grid corners at (±200, -200). */
+export const MARINA_CURVE: P[] = Array.from({ length: 41 }, (_, i) => {
+  const x = -200 + i * 10;
+  return { x, z: -200 - 48 * Math.sin((Math.PI * (x + 200)) / 400) };
+});
+export function distToMarina(x: number, z: number) {
+  let best = Infinity;
+  for (let i = 0; i < MARINA_CURVE.length - 1; i++) {
+    const a = MARINA_CURVE[i], b = MARINA_CURVE[i + 1];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz)));
+    best = Math.min(best, Math.hypot(x - (a.x + dx * t), z - (a.z + dz * t)));
+  }
+  return best;
+}
+
 export function rng(seed: number) {
   return () => {
     seed |= 0;
@@ -161,6 +177,9 @@ export function buildWorld() {
     routes.push([{ x: x1 + 4, z: z1 + 4 }, { x: x2 - 4, z: z1 + 4 }, { x: x2 - 4, z: z2 - 4 }, { x: x1 + 4, z: z2 - 4 }]);
     routes.push([{ x: x1 - 4, z: z1 - 4 }, { x: x1 - 4, z: z2 + 4 }, { x: x2 + 4, z: z2 + 4 }, { x: x2 + 4, z: z1 - 4 }]);
   }
+  // Marina lagoon curve, both directions (joins grid at its south corners)
+  routes.push([...MARINA_CURVE.map((p) => ({ x: p.x, z: p.z - 4 })), { x: 196, z: -196 }, { x: -196, z: -196 }]);
+  routes.push([...[...MARINA_CURVE].reverse().map((p) => ({ x: p.x, z: p.z + 4 })), { x: -204, z: -204 }]);
   // Third Mainland-style bridge loop
   routes.push([{ x: 4, z: 196 }, { x: 4, z: 472 }, { x: -4, z: 472 }, { x: -4, z: 196 }]);
 
@@ -184,6 +203,7 @@ export function inWorld(x: number, z: number) {
   return (
     (Math.abs(x) <= 213 && Math.abs(z) <= 213) ||
     (Math.abs(x) <= 7.6 && z >= 200 && z <= 422) ||
-    (Math.abs(x) <= 58 && z >= 418 && z <= 515)
+    (Math.abs(x) <= 58 && z >= 418 && z <= 515) ||
+    (z < -195 && z > -262 && Math.abs(x) <= 212 && distToMarina(x, z) <= 9.5)
   );
 }
