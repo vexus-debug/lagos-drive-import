@@ -6,6 +6,7 @@ import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { GameAudio } from "./audio";
 import { HUD } from "./HUD";
 import { CarModel, Markers, WorldMesh } from "./Models";
+import { LagosDetails, LagosHeritage } from "./Lagos";
 import { createState, step } from "./sim";
 import { SPECS, type GameState, type Input } from "./types";
 import { buildWorld, type World } from "./world";
@@ -188,6 +189,8 @@ export function Game() {
     <div ref={wrap} className="fixed inset-0 bg-background" onClick={() => !touch && started && !locked && play()}>
       <Canvas shadows dpr={[1, 1.5]} camera={{ fov: 75, near: 0.1, far: 700, position: [10, 1.65, 20] }}>
         <WorldMesh W={W} />
+        <LagosDetails W={W} />
+        <LagosHeritage W={W} />
         <Suspense fallback={null}>
           {S.cars.map((c) => (c.type === "keke" ? <CarModel key={c.id} car={c} /> : <RealCar key={c.id} car={c} />))}
           {S.peds.map((p) => <RealPed key={p.id} ped={p} />)}
