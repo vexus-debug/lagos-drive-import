@@ -41,7 +41,7 @@ export function LagosDetails({ W }: { W: World }) {
           slabs.push(horiz ? { x: x1 + t, z: gz, sx: 1.6, sz: 1.0 } : { x: gx, z: z1 + t, sx: 1.0, sz: 1.6 });
       }
     }
-    const lowBuildings = W.buildings.filter((b) => b.h < 60);
+    const lowBuildings = W.buildings.filter((b) => b.h < 60 && !b.heritage);
     return { kerbs, gutters, slabs, lowBuildings };
   }, [W]);
 
@@ -171,6 +171,124 @@ export function LagosDetails({ W }: { W: World }) {
           </mesh>
         </group>
       ))}
+    </group>
+  );
+}
+
+/** Afro-Brazilian heritage roofs + shutters, laterite sand shoulders, Marina footbridges, Eko/Carter bridge ramp. */
+export function LagosHeritage({ W }: { W: World }) {
+  const roof = useRef<THREE.InstancedMesh>(null);
+  const shutter = useRef<THREE.InstancedMesh>(null);
+  const band = useRef<THREE.InstancedMesh>(null);
+  const sand = useRef<THREE.InstancedMesh>(null);
+  const houses = useMemo(() => W.buildings.filter((b) => b.heritage), [W]);
+  const shutters = useMemo(() => {
+    const out: { x: number; y: number; z: number; ry: number }[] = [];
+    for (const b of houses) {
+      const w = b.maxX - b.minX, d = b.maxZ - b.minZ, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+      for (const y of [1.8, 5])
+        for (let k = -1; k <= 1; k++) {
+          out.push({ x: cx + k * w * 0.28, y, z: b.maxZ + 0.06, ry: 0 }, { x: cx + k * w * 0.28, y, z: b.minZ - 0.06, ry: Math.PI });
+          out.push({ x: b.maxX + 0.06, y, z: cz + k * d * 0.28, ry: Math.PI / 2 }, { x: b.minX - 0.06, y, z: cz + k * d * 0.28, ry: -Math.PI / 2 });
+        }
+    }
+    return out;
+  }, [houses]);
+  const sands = useMemo(
+    () =>
+      W.blocks.flatMap((b) => [
+        { x: (b.minX + b.maxX) / 2, z: b.minZ - 0.6, sx: b.maxX - b.minX, sz: 1.2 },
+        { x: (b.minX + b.maxX) / 2, z: b.maxZ + 0.6, sx: b.maxX - b.minX, sz: 1.2 },
+        { x: b.minX - 0.6, z: (b.minZ + b.maxZ) / 2, sx: 1.2, sz: b.maxZ - b.minZ },
+        { x: b.maxX + 0.6, z: (b.minZ + b.maxZ) / 2, sx: 1.2, sz: b.maxZ - b.minZ },
+      ]),
+    [W],
+  );
+  const shutterTex = useMemo(() => {
+    const cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 128;
+    const g = cv.getContext("2d")!;
+    g.fillStyle = "#f4ead8"; g.fillRect(0, 0, 64, 128);
+    g.fillStyle = "#2f6b4f"; g.beginPath(); g.moveTo(6, 128); g.lineTo(6, 32); g.arc(32, 32, 26, Math.PI, 0); g.lineTo(58, 128); g.fill();
+    g.strokeStyle = "#1d4433"; g.lineWidth = 2;
+    for (let y = 40; y < 128; y += 7) { g.beginPath(); g.moveTo(8, y); g.lineTo(56, y); g.stroke(); }
+    g.beginPath(); g.moveTo(32, 8); g.lineTo(32, 128); g.stroke();
+    const t = new THREE.CanvasTexture(cv);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, []);
+
+  useLayoutEffect(() => {
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(), e = new THREE.Euler();
+    houses.forEach((b, i) => {
+      const w = b.maxX - b.minX, d = b.maxZ - b.minZ, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+      // 4-sided cone rotated 45deg = hipped roof; radius sqrt(2)/2 scaled to footprint + eaves
+      roof.current!.setMatrixAt(i, m.compose(v.set(cx, b.h + 1.4, cz), q.setFromEuler(e.set(0, Math.PI / 4, 0)), s.set((w + 1.6) * 0.7071, 2.8, (d + 1.6) * 0.7071)));
+      band.current!.setMatrixAt(i, m.compose(v.set(cx, b.h * 0.5, cz), q.identity(), s.set(w + 0.25, 0.35, d + 0.25)));
+    });
+    shutters.forEach((p, i) => shutter.current!.setMatrixAt(i, m.compose(v.set(p.x, p.y, p.z), q.setFromEuler(e.set(0, p.ry, 0)), s.set(1, 1, 1))));
+    sands.forEach((p, i) => sand.current!.setMatrixAt(i, m.compose(v.set(p.x, 0.03, p.z), q.identity(), s.set(p.sx, 0.02, p.sz))));
+    for (const r of [roof, shutter, band, sand]) r.current!.instanceMatrix.needsUpdate = true;
+  }, [houses, shutters, sands]);
+
+  return (
+    <group>
+      <instancedMesh ref={roof} args={[undefined, undefined, Math.max(1, houses.length)]} castShadow count={houses.length}>
+        <coneGeometry args={[1, 1, 4]} />
+        <meshLambertMaterial color="#a8432a" />
+      </instancedMesh>
+      <instancedMesh ref={band} args={[undefined, undefined, Math.max(1, houses.length)]} count={houses.length}>
+        <boxGeometry />
+        <meshLambertMaterial color="#fff7e6" />
+      </instancedMesh>
+      <instancedMesh ref={shutter} args={[undefined, undefined, Math.max(1, shutters.length)]} count={shutters.length}>
+        <planeGeometry args={[1.3, 2.4]} />
+        <meshLambertMaterial map={shutterTex} />
+      </instancedMesh>
+      <instancedMesh ref={sand} args={[undefined, undefined, sands.length]} receiveShadow>
+        <boxGeometry />
+        <meshLambertMaterial color="#b85c38" transparent opacity={0.75} />
+      </instancedMesh>
+      {/* yellow steel-truss footbridges over Marina */}
+      {W.footbridges.map((f, i) => (
+        <group key={i} position={[f.x, 0, f.z]}>
+          <mesh position={[0, 7, 0]} castShadow>
+            <boxGeometry args={[2.4, 0.3, 22]} />
+            <meshLambertMaterial color="#fec007" />
+          </mesh>
+          {[-1.1, 1.1].map((x) => (
+            <mesh key={x} position={[x, 7.8, 0]}>
+              <boxGeometry args={[0.15, 1.4, 22]} />
+              <meshLambertMaterial color="#e0a800" wireframe />
+            </mesh>
+          ))}
+          {[-11, 11].map((z) => (
+            <group key={z}>
+              <mesh position={[0, 3.5, z]}>
+                <boxGeometry args={[2.4, 7, 0.4]} />
+                <meshLambertMaterial color="#9a958c" />
+              </mesh>
+              <mesh position={[0, 3.5, z + Math.sign(z) * 4]} rotation-x={Math.sign(z) * 0.95}>
+                <boxGeometry args={[2.2, 0.25, 9]} />
+                <meshLambertMaterial color="#fec007" />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      ))}
+      {/* Eko / Carter bridge flyover ramp leaving the island to the west */}
+      <group position={[-260, 0, 0]}>
+        <mesh position={[0, 6, 0]} rotation-z={0.1} castShadow receiveShadow>
+          <boxGeometry args={[90, 1.2, 14]} />
+          <meshLambertMaterial color="#8d8a84" />
+        </mesh>
+        {[-30, -10, 10, 30].map((x) => (
+          <mesh key={x} position={[x, 3 - x * 0.05, 0]}>
+            <cylinderGeometry args={[1, 1.2, 8 - x * 0.1, 8]} />
+            <meshLambertMaterial color="#a39e93" />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 }
