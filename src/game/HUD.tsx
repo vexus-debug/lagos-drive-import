@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameAudio } from "./audio";
 import { SPECS, type GameState } from "./types";
-import { LINES, MARINA_CURVE } from "./world";
+import { DIAGONALS, LINES, MARINA_CURVE } from "./world";
 
 const R = 82;
 const RANGE = 160;
@@ -40,6 +40,7 @@ function drawRadar(cv: HTMLCanvasElement, S: GameState) {
   for (const v of LINES) { line([-208, v], [208, v]); line([v, -208], [v, 208]); }
   for (let i = 0; i < MARINA_CURVE.length - 1; i++) line([MARINA_CURVE[i].x, MARINA_CURVE[i].z], [MARINA_CURVE[i + 1].x, MARINA_CURVE[i + 1].z]);
   line([0, 200], [0, 480]);
+  for (const d of DIAGONALS) for (let i = 0; i < d.pts.length - 1; i++) line([d.pts[i].x, d.pts[i].z], [d.pts[i + 1].x, d.pts[i + 1].z]);
   const dot = (x: number, z: number, color: string, size: number, clampEdge = false) => {
     let [a, b] = T(x, z);
     if (clampEdge) {

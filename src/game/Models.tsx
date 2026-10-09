@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Car, GameState, Ped } from "./types";
-import { FLYOVER_Z, LINES, MARINA_CURVE, type World } from "./world";
+import { DIAGONALS, FLYOVER_Z, LINES, MARINA_CURVE, type World } from "./world";
 import { asphalt, facade, ground, pavement, worldUVFacade } from "./textures";
 
 const mats = new Map<string, THREE.MeshLambertMaterial>();
@@ -137,6 +137,7 @@ export function WorldMesh({ W }: { W: World }) {
         <boxGeometry args={[120, 3, 100]} />
       </mesh>
       <MarinaCurve road={T.roadH} />
+      {DIAGONALS.map((d) => <MarinaCurve key={d.name} road={T.roadH} pts={d.pts} land={false} />)}
       {/* blocks */}
       {W.blocks.map((b, i) => (
         <group key={i}>
@@ -345,9 +346,9 @@ function ribbon(pts: { x: number; z: number }[], w: number, y: number, off = 0) 
 }
 
 /** Curving Marina expressway on reclaimed land along the lagoon, with a concrete median and black/yellow kerbs. */
-function MarinaCurve({ road }: { road: THREE.Material }) {
+function MarinaCurve({ road, pts, land = true }: { road: THREE.Material; pts?: { x: number; z: number }[]; land?: boolean }) {
   const G = useMemo(() => {
-    const ext = [{ x: -212, z: -200 }, ...MARINA_CURVE, { x: 212, z: -200 }];
+    const ext = pts ?? [{ x: -212, z: -200 }, ...MARINA_CURVE, { x: 212, z: -200 }];
     const tex = (road as THREE.MeshLambertMaterial).map!.clone();
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(1, 1); tex.needsUpdate = true;
     return {
@@ -360,7 +361,7 @@ function MarinaCurve({ road }: { road: THREE.Material }) {
       lineL: ribbon(ext, 0.12, 0.05, 7.3),
       lineR: ribbon(ext, 0.12, 0.05, -7.3),
     };
-  }, [road]);
+  }, [road, pts]);
   const kerbTex = useMemo(() => {
     const cv = document.createElement("canvas"); cv.width = 64; cv.height = 8;
     const g = cv.getContext("2d")!;
@@ -370,7 +371,7 @@ function MarinaCurve({ road }: { road: THREE.Material }) {
   }, []);
   return (
     <group>
-      <mesh geometry={G.land} receiveShadow><meshLambertMaterial color="#c9b089" side={THREE.DoubleSide} /></mesh>
+      {land && <mesh geometry={G.land} receiveShadow><meshLambertMaterial color="#c9b089" side={THREE.DoubleSide} /></mesh>}
       <mesh geometry={G.road} receiveShadow><meshLambertMaterial map={G.tex} side={THREE.DoubleSide} /></mesh>
       <mesh geometry={G.median}><meshLambertMaterial color="#d9d2c3" side={THREE.DoubleSide} /></mesh>
       <mesh geometry={G.kerbIn}><meshLambertMaterial map={kerbTex} side={THREE.DoubleSide} /></mesh>
