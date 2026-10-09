@@ -31,6 +31,27 @@ export function distToMarina(x: number, z: number) {
   return best;
 }
 
+/** Angled old-town streets of Lagos Island that cut across the blocks at real-world bearings. */
+export const DIAGONALS: { name: string; pts: P[] }[] = [
+  { name: "Nnamdi Azikiwe St", pts: [{ x: -200, z: 200 }, { x: -150, z: 130 }, { x: -120, z: 80 }, { x: -60, z: 30 }, { x: 0, z: 0 }] },
+  { name: "Docemo / Ereko St", pts: [{ x: -120, z: 0 }, { x: -85, z: -50 }, { x: -60, z: -90 }, { x: -30, z: -120 }] },
+  { name: "Igbosere Rd", pts: [{ x: 80, z: 0 }, { x: 130, z: -45 }, { x: 165, z: -85 }, { x: 200, z: -120 }] },
+  { name: "Tinubu Square Link", pts: [{ x: 0, z: -120 }, { x: 35, z: -70 }, { x: 60, z: -30 }, { x: 80, z: 0 }] },
+  { name: "Adeniji Adele Rd", pts: [{ x: 80, z: 200 }, { x: 120, z: 150 }, { x: 160, z: 110 }, { x: 200, z: 80 }] },
+];
+function nearDiagonal(b: { minX: number; maxX: number; minZ: number; maxZ: number }, pad: number) {
+  for (const d of DIAGONALS)
+    for (let i = 0; i < d.pts.length - 1; i++) {
+      const a = d.pts[i], c = d.pts[i + 1];
+      const n = Math.ceil(Math.hypot(c.x - a.x, c.z - a.z) / 2);
+      for (let k = 0; k <= n; k++) {
+        const x = a.x + ((c.x - a.x) * k) / n, z = a.z + ((c.z - a.z) * k) / n;
+        if (x > b.minX - pad && x < b.maxX + pad && z > b.minZ - pad && z < b.maxZ + pad) return true;
+      }
+    }
+  return false;
+}
+
 export function rng(seed: number) {
   return () => {
     seed |= 0;
@@ -171,6 +192,21 @@ export function buildWorld() {
   // bridge rails
   colliders.push({ minX: -9, maxX: -7.8, minZ: 214, maxZ: 418 });
   colliders.push({ minX: 7.8, maxX: 9, minZ: 214, maxZ: 418 });
+
+  // clear corridors for the angled streets
+  const pad = 10;
+  const keep = <T extends Box>(arr: T[]) => { for (let k = arr.length - 1; k >= 0; k--) if (nearDiagonal(arr[k], pad)) arr.splice(k, 1); };
+  keep(buildings); keep(colliders);
+  const ptBox = (p: P) => ({ minX: p.x, maxX: p.x, minZ: p.z, maxZ: p.z });
+  for (const arr of [stalls, palms, poles, busStops, billboards] as P[][]) for (let k = arr.length - 1; k >= 0; k--) if (nearDiagonal(ptBox(arr[k]), pad)) arr.splice(k, 1);
+  for (const d of DIAGONALS) {
+    const off = (s: number) => d.pts.map((p, i) => {
+      const a = d.pts[Math.max(0, i - 1)], b = d.pts[Math.min(d.pts.length - 1, i + 1)];
+      const L = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      return { x: p.x - ((b.z - a.z) / L) * s, z: p.z + ((b.x - a.x) / L) * s };
+    });
+    routes.push([...off(-4), ...off(4).reverse()]);
+  }
 
   // traffic routes: rectangles on the road grid, both directions
   const rects: [number, number, number, number][] = [];
