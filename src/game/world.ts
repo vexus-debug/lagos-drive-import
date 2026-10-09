@@ -3,7 +3,16 @@ import type { P } from "./types";
 export interface Box { minX: number; maxX: number; minZ: number; maxZ: number }
 export interface Building extends Box { h: number; color: string; heritage?: boolean }
 
-export const LINES = [-200, -100, 0, 100, 200];
+/** Irregular street lines echoing Lagos Island: deep blocks between Marina and Broad St, tighter old-town blocks north. */
+export const LINES = [-200, -120, 0, 80, 200];
+export const FLYOVER_Z = -120;
+const OLD = [-200, -100, 0, 100, 200];
+/** Re-anchor a hand-placed spot (authored against the old even grid) onto the real street lines. */
+function remap(v: number) {
+  let k = 0;
+  for (let i = 1; i < OLD.length; i++) if (Math.abs(OLD[i] - v) < Math.abs(OLD[k] - v)) k = i;
+  return LINES[k] + (v - OLD[k]);
+}
 export const HALF_ROAD = 8;
 
 /** Curving Marina expressway hugging the lagoon south of the grid; joins the grid corners at (±200, -200). */
@@ -46,8 +55,8 @@ const SIGNS: [string, string, string][] = [
   ["POS / BUREAU DE CHANGE", "#7b2cbf", "#ffd6ff"],
 ];
 /** Real Lagos Island street names mapped onto the road lines (z = horizontal, x = vertical). */
-export const STREET_Z: Record<number, string> = { [-200]: "Nnamdi Azikiwe St", [-100]: "Marina (Expressway)", 0: "Broad Street", 100: "Martins Street", 200: "Marina Waterfront" };
-export const STREET_X: Record<number, string> = { [-200]: "Idumota Rd", [-100]: "Balogun St", 0: "Odunlami St", 100: "Joseph St", 200: "CMS / Bishop Crowther" };
+export const STREET_Z: Record<number, string> = { [-200]: "Marina", [-120]: "Broad Street", 0: "Martins Street", 80: "Nnamdi Azikiwe St", 200: "Ebute Ero / Carter Bridge Rd" };
+export const STREET_X: Record<number, string> = { [-200]: "Idumota Rd", [-120]: "Balogun St", 0: "Odunlami St", 80: "Joseph St", 200: "CMS / Bishop Crowther" };
 export const NECOM = { x: 50, z: 50, w: 16, h: 95 };
 export const GPT_COLORS = ["#1a1a1a", "#2a2a2a", "#1d4ed8", "#111"];
 
@@ -76,11 +85,11 @@ export function buildWorld() {
             colliders.push({ minX: x - 1.6, maxX: x + 1.6, minZ: z - 1.2, maxZ: z + 1.2 });
           }
       } else {
-        const cell = 76 / 3;
+        const cell = (b - a - 24) / 3;
         for (let cx = 0; cx < 3; cx++)
           for (let cz = 0; cz < 3; cz++) {
             if (r() > 0.85) continue;
-            const w = 12 + r() * 10, dp = 12 + r() * 10;
+            const w = Math.min(12 + r() * 10, cell - 1.5), dp = Math.min(12 + r() * 10, cell - 1.5);
             const h = 6 + r() * r() * 45;
             const mx = a + 12 + cell * (cx + 0.5) + (r() - 0.5) * (cell - w) * 0.8;
             const mz = c + 12 + cell * (cz + 0.5) + (r() - 0.5) * (cell - dp) * 0.8;
@@ -108,7 +117,7 @@ export function buildWorld() {
   const spots: [number, number, number][] = [
     [30, -89, 0], [-60, 11, Math.PI], [150, 111, Math.PI], [-150, -11, 0], [60, 189, 0], [-30, -111, 0], [111, 50, -Math.PI / 2], [-89, 140, Math.PI / 2],
   ];
-  spots.forEach(([x, z, rot], k) => billboards.push({ x, z, rot, text: SIGNS[k][0], bg: SIGNS[k][1], fg: SIGNS[k][2] }));
+  spots.forEach(([x, z, rot], k) => billboards.push({ x: remap(x), z: remap(z), rot, text: SIGNS[k][0], bg: SIGNS[k][1], fg: SIGNS[k][2] }));
 
   // NECOM House landmark: clear its plot, then add the tower
   {
@@ -125,7 +134,7 @@ export function buildWorld() {
   const stopNames = ["CMS", "OBALENDE", "MARINA", "BROAD ST", "IDUMOTA", "TBS", "OYINGBO", "LEKKI"];
   const stopSpots: [number, number, number][] = [[40, 11, 0], [-150, -89, Math.PI], [140, 189, Math.PI], [-60, 111, 0], [11, -150, Math.PI / 2], [-111, 60, Math.PI / 2], [160, -11, Math.PI], [-170, 189, Math.PI]];
   stopSpots.forEach(([x, z, rot], k) => {
-    busStops.push({ x, z, rot, name: stopNames[k] });
+    busStops.push({ x: remap(x), z: remap(z), rot, name: stopNames[k] });
   });
 
   // concrete utility poles along sidewalks
@@ -156,8 +165,8 @@ export function buildWorld() {
   // overpass pillars (Marina expressway) along z=-100
   const pillars: P[] = [];
   for (let x = -200; x <= 200; x += 25) {
-    pillars.push({ x, z: -100 });
-    colliders.push({ minX: x - 0.7, maxX: x + 0.7, minZ: -100.7, maxZ: -99.3 });
+    pillars.push({ x, z: FLYOVER_Z });
+    colliders.push({ minX: x - 0.7, maxX: x + 0.7, minZ: FLYOVER_Z - 0.7, maxZ: FLYOVER_Z + 0.7 });
   }
   // bridge rails
   colliders.push({ minX: -9, maxX: -7.8, minZ: 214, maxZ: 418 });
@@ -184,7 +193,7 @@ export function buildWorld() {
   routes.push([{ x: 4, z: 196 }, { x: 4, z: 472 }, { x: -4, z: 472 }, { x: -4, z: 196 }]);
 
   // yellow steel-truss pedestrian footbridges over the Marina expressway (z=-100)
-  const footbridges: P[] = [-150, -50, 50, 150].map((x) => ({ x: x + 12, z: -100 }));
+  const footbridges: P[] = [-160, -60, 40, 140].map((x) => ({ x: x + 12, z: FLYOVER_Z }));
 
   return { footbridges, buildings, colliders, palms, stalls, billboards, sidewalks, blocks, routes, pillars, busStops, poles };
 }

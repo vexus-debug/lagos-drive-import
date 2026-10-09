@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Car, GameState, Ped } from "./types";
-import { LINES, MARINA_CURVE, type World } from "./world";
+import { FLYOVER_Z, LINES, MARINA_CURVE, type World } from "./world";
 import { asphalt, facade, ground, pavement, worldUVFacade } from "./textures";
 
 const mats = new Map<string, THREE.MeshLambertMaterial>();
@@ -174,9 +174,9 @@ export function WorldMesh({ W }: { W: World }) {
         <mesh key={i} position={[0, -1.4, 220 + i * 20]} material={mat("#bdb5a4")}><boxGeometry args={[12, 2.4, 2]} /></mesh>
       ))}
       {/* overpass */}
-      <mesh position={[0, 9, -100]} castShadow receiveShadow material={mat("#9c958a")}><boxGeometry args={[420, 1.2, 13]} /></mesh>
+      <mesh position={[0, 9, FLYOVER_Z]} castShadow receiveShadow material={mat("#9c958a")}><boxGeometry args={[420, 1.2, 13]} /></mesh>
       {[-6.2, 6.2].map((o) => (
-        <mesh key={o} position={[0, 10, -100 + o]} material={mat("#d9d2c3")}><boxGeometry args={[420, 0.9, 0.5]} /></mesh>
+        <mesh key={o} position={[0, 10, FLYOVER_Z + o]} material={mat("#d9d2c3")}><boxGeometry args={[420, 0.9, 0.5]} /></mesh>
       ))}
       {W.pillars.map((p, i) => (
         <mesh key={i} position={[p.x, 4.5, p.z]} castShadow material={mat("#b8b1a3")}><boxGeometry args={[1.4, 9, 1.4]} /></mesh>
