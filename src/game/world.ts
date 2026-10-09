@@ -198,7 +198,7 @@ export function buildWorld() {
   const keep = <T extends Box>(arr: T[]) => { for (let k = arr.length - 1; k >= 0; k--) if (nearDiagonal(arr[k], pad)) arr.splice(k, 1); };
   keep(buildings); keep(colliders);
   const ptBox = (p: P) => ({ minX: p.x, maxX: p.x, minZ: p.z, maxZ: p.z });
-  for (const arr of [stalls, palms, poles, busStops, billboards] as P[][]) for (let k = arr.length - 1; k >= 0; k--) if (nearDiagonal(ptBox(arr[k]), 6)) arr.splice(k, 1);
+  for (const arr of [stalls, palms, poles, busStops, billboards] as P[][]) for (let k = arr.length - 1; k >= 0; k--) if (nearDiagonal(ptBox(arr[k]), pad)) arr.splice(k, 1);
   for (const d of DIAGONALS) {
     const off = (s: number) => d.pts.map((p, i) => {
       const a = d.pts[Math.max(0, i - 1)], b = d.pts[Math.min(d.pts.length - 1, i + 1)];
