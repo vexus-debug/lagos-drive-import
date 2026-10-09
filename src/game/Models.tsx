@@ -137,7 +137,7 @@ export function WorldMesh({ W }: { W: World }) {
         <boxGeometry args={[120, 3, 100]} />
       </mesh>
       <MarinaCurve road={T.roadH} />
-      {DIAGONALS.map((d) => <MarinaCurve key={d.name} road={T.roadH} pts={d.pts} land={false} />)}
+      <group position={[0, 0.13, 0]}>{DIAGONALS.map((d) => <MarinaCurve key={d.name} road={T.roadH} pts={d.pts} land={false} />)}</group>
       {/* blocks */}
       {W.blocks.map((b, i) => (
         <group key={i}>
