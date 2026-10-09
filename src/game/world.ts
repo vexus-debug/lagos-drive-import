@@ -89,7 +89,7 @@ export function buildWorld() {
         for (let cx = 0; cx < 3; cx++)
           for (let cz = 0; cz < 3; cz++) {
             if (r() > 0.85) continue;
-            const w = 12 + r() * 10, dp = 12 + r() * 10;
+            const w = Math.min(12 + r() * 10, cell - 1.5), dp = Math.min(12 + r() * 10, cell - 1.5);
             const h = 6 + r() * r() * 45;
             const mx = a + 12 + cell * (cx + 0.5) + (r() - 0.5) * (cell - w) * 0.8;
             const mz = c + 12 + cell * (cz + 0.5) + (r() - 0.5) * (cell - dp) * 0.8;
